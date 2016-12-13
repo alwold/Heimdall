@@ -205,7 +205,7 @@ open class Heimdall {
             let algorithm = CCAlgorithm(kCCAlgorithmAES128)
             let blockSize = SecKeyGetBlockSize(publicKey)
             let ivSize = Heimdall.blockSize(algorithm)
-            let padding = SecPadding.OAEP
+            let padding = SecPadding.PKCS1
             
             let keySize: Int = {
                 let adjustedBlockSize = blockSize - ivSize - 42 // Assumes SHA1-OAEP is used
@@ -291,10 +291,10 @@ open class Heimdall {
             let algorithm = CCAlgorithm(kCCAlgorithmAES128)
             let blockSize = SecKeyGetBlockSize(key)
             let ivSize = Heimdall.blockSize(algorithm)
-            let padding = SecPadding.OAEP
+            let padding = SecPadding.PKCS1
             
             let keySize: Int = {
-                let adjustedBlockSize = blockSize - ivSize - 42 // Assumes SHA1-OAEP is used
+              let adjustedBlockSize = blockSize - ivSize - 42 // Assumes SHA1-OAEP is used
                 
                 if adjustedBlockSize >= Int(kCCKeySizeAES256) {
                     return kCCKeySizeAES256
@@ -651,13 +651,15 @@ open class Heimdall {
         
         var publicRef: SecKey?
         var privateRef: SecKey?
-        switch SecKeyGeneratePair(pairAttributes as CFDictionary, &publicRef, &privateRef) {
+        let status = SecKeyGeneratePair(pairAttributes as CFDictionary, &publicRef, &privateRef)
+        switch status {
             case noErr:
                 if let publicKey = publicRef, let privateKey = privateRef {
                     return (publicKey, privateKey)
                 }
                 
                 return nil
+            
             default:
                 return nil
         }
