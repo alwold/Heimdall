@@ -208,7 +208,7 @@ open class Heimdall {
             let padding = SecPadding.PKCS1
             
             let keySize: Int = {
-                let adjustedBlockSize = blockSize - ivSize - 42 // Assumes SHA1-OAEP is used
+                let adjustedBlockSize = blockSize - ivSize - 11 // Assumes SHA1-OAEP is used
                 
                 if adjustedBlockSize >= Int(kCCKeySizeAES256) {
                     return kCCKeySizeAES256
@@ -277,7 +277,47 @@ open class Heimdall {
         
         return nil
     }
-    
+
+  open func decryptNonAESWrappedData(_ encryptedData: Data) -> Data? {
+    if let key = obtainKey(.private) {
+      let algorithm = CCAlgorithm(kCCAlgorithmAES128)
+      let blockSize = SecKeyGetBlockSize(key)
+      let ivSize = Heimdall.blockSize(algorithm)
+      let padding = SecPadding.PKCS1
+
+      let keySize: Int = {
+        let adjustedBlockSize = blockSize - ivSize - 11 // Assumes SHA1-OAEP is used
+
+        if adjustedBlockSize >= Int(kCCKeySizeAES256) {
+          return kCCKeySizeAES256
+        } else if adjustedBlockSize >= Int(kCCKeySizeAES192) {
+          return kCCKeySizeAES192
+        } else {
+          return kCCKeySizeAES128
+        }
+      }()
+
+      let metadata = encryptedData.subdata(in: Range(uncheckedBounds: (0, blockSize)))
+      let messageData = encryptedData.subdata(in: Range(uncheckedBounds: (blockSize, blockSize + encryptedData.count - blockSize)))
+
+      // Decrypt the key and the IV
+      if let decryptedMetadata = NSMutableData(length: blockSize) {
+        let encryptedMetadata = (metadata as NSData).bytes.bindMemory(to: UInt8.self, capacity: metadata.count)
+        let decryptedMetadataBytes = decryptedMetadata.mutableBytes.assumingMemoryBound(to: UInt8.self)
+
+        var decryptedMetadataLength = blockSize
+        let decryptionStatus = SecKeyDecrypt(key, padding, encryptedMetadata, blockSize, decryptedMetadataBytes, &decryptedMetadataLength)
+
+        if decryptionStatus == noErr {
+          let decryptedKey = decryptedMetadata.subdata(with: NSRange(location: 0, length: keySize))
+          return decryptedKey as Data?
+        }
+      }
+    }
+
+    return nil
+  }
+
     ///
     /// Decrypt the encrypted data
     ///
@@ -294,7 +334,7 @@ open class Heimdall {
             let padding = SecPadding.PKCS1
             
             let keySize: Int = {
-              let adjustedBlockSize = blockSize - ivSize - 42 // Assumes SHA1-OAEP is used
+              let adjustedBlockSize = blockSize - ivSize - 11 // Assumes SHA1-OAEP is used
                 
                 if adjustedBlockSize >= Int(kCCKeySizeAES256) {
                     return kCCKeySizeAES256
