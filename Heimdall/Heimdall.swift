@@ -208,7 +208,7 @@ open class Heimdall {
             let padding = SecPadding.PKCS1
             
             let keySize: Int = {
-                let adjustedBlockSize = blockSize - ivSize - 11 // Assumes SHA1-OAEP is used
+                let adjustedBlockSize = blockSize - ivSize - 11
                 
                 if adjustedBlockSize >= Int(kCCKeySizeAES256) {
                     return kCCKeySizeAES256
@@ -286,7 +286,7 @@ open class Heimdall {
       let padding = SecPadding.PKCS1
 
       let keySize: Int = {
-        let adjustedBlockSize = blockSize - ivSize - 11 // Assumes SHA1-OAEP is used
+        let adjustedBlockSize = blockSize - ivSize - 11
 
         if adjustedBlockSize >= Int(kCCKeySizeAES256) {
           return kCCKeySizeAES256
@@ -334,7 +334,7 @@ open class Heimdall {
             let padding = SecPadding.PKCS1
             
             let keySize: Int = {
-              let adjustedBlockSize = blockSize - ivSize - 11 // Assumes SHA1-OAEP is used
+              let adjustedBlockSize = blockSize - ivSize - 11
                 
                 if adjustedBlockSize >= Int(kCCKeySizeAES256) {
                     return kCCKeySizeAES256
