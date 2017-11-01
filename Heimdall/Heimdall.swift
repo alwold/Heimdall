@@ -57,7 +57,10 @@ open class Heimdall {
         if let existingData = Heimdall.obtainKeyData(publicTag) {
             // Compare agains the new data (optional)
             if let newData = publicKeyData?.dataByStrippingX509Header() , (existingData != newData) {
-                Heimdall.updateKey(publicTag, data: newData)
+                if !Heimdall.updateKey(publicTag, data: newData) {
+                    // Failed to update the key, fail the initialisation
+                    return nil
+                }
             }
             
             self.init(scope: ScopeOptions.PublicKey, publicTag: publicTag, privateTag: nil)
@@ -272,7 +275,7 @@ open class Heimdall {
         }
         
         if let data = Data(base64Encoded: string, options: NSData.Base64DecodingOptions(rawValue: 0)), let decryptedData = self.decrypt(data) {
-            return NSString(data: decryptedData, encoding: String.Encoding.utf8.rawValue) as? String
+            return NSString(data: decryptedData, encoding: String.Encoding.utf8.rawValue) as String?
         }
         
         return nil
@@ -333,6 +336,8 @@ open class Heimdall {
             let ivSize = Heimdall.blockSize(algorithm)
             let padding = SecPadding.PKCS1
             
+            guard encryptedData.count > blockSize else { return nil }
+            
             let keySize: Int = {
               let adjustedBlockSize = blockSize - ivSize - 11
                 
@@ -346,7 +351,7 @@ open class Heimdall {
             }()
             
             let metadata = encryptedData.subdata(in: Range(uncheckedBounds: (0, blockSize)))
-            let messageData = encryptedData.subdata(in: Range(uncheckedBounds: (blockSize, blockSize + encryptedData.count - blockSize)))
+            let messageData = encryptedData.subdata(in: Range(uncheckedBounds: (blockSize, encryptedData.count)))
                         
             // Decrypt the key and the IV
             if let decryptedMetadata = NSMutableData(length: blockSize) {
@@ -500,7 +505,7 @@ open class Heimdall {
     ///
     /// - returns: True if remove successfully
     ///
-    open func destroy() -> Bool {
+    @discardableResult open func destroy() -> Bool {
         if Heimdall.deleteKey(self.publicTag) {
             self.scope = self.scope & ~(ScopeOptions.PublicKey)
             
@@ -526,7 +531,7 @@ open class Heimdall {
     ///
     /// - returns: True if reset successfully
     ///
-    open func regenerate(_ keySize: Int = 2048) -> Bool {
+    @discardableResult open func regenerate(_ keySize: Int = 2048) -> Bool {
         // Only if we currently have a private key in our control (or we think we have one)
         if self.scope & ScopeOptions.PrivateKey != ScopeOptions.PrivateKey {
             return false
@@ -707,7 +712,10 @@ open class Heimdall {
     
     fileprivate class func generateRandomBytes(_ count: Int) -> Data? {
         var result = [UInt8](repeating: 0, count: count)
-        SecRandomCopyBytes(kSecRandomDefault, count, &result)
+        if SecRandomCopyBytes(kSecRandomDefault, count, &result) != 0 {
+            // Failed to get random bits
+            return nil
+        }
         
         return Data(bytes: UnsafePointer<UInt8>(result), count: count)
     }
@@ -810,7 +818,7 @@ private extension NSInteger {
         }
         
         // Long form
-        let i = (self / 256) + 1
+        let i = Int(log2(Double(self)) / 8 + 1)
         var len = self
         var result: [CUnsignedChar] = [CUnsignedChar(i + 0x80)]
         
